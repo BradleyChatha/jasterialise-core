@@ -1,0 +1,138 @@
+type: @CaseSensitive(no) @OnUnknown("error");
+
+namespace tiled;
+
+multi type PropertyValue
+{
+    stringUTF8;
+    int64;
+    float64;
+}
+
+value type Property
+{
+    name: stringUTF8!;
+    type: stringUTF8!;
+    value: PropertyValue!;
+}
+
+value type Point
+{
+    x: float64!;
+    y: float64!;
+}
+
+reference type Object
+{
+    @ValueConstraint(
+        when:   .elipse,
+        is:     yes,
+        member: .point,
+        mustBe: no
+    )
+
+    elipse:     bool;
+    point:      bool;
+    id:         int32!;
+    gid:        int32!;
+    x:          float64!;
+    y:          float64!;
+    width:      float64!;
+    height:     float64!;
+    name:       stringUTF8!;
+    polygon:    Point[];
+    polyline:   Point[];
+    properties: Property[];
+    rotation:   float64;
+    type:       stringUTF8!;
+    visible:    bool!;
+}
+
+enum type DataCompression : string_utf8
+{
+    none: null;
+    gzip: "gzip";
+    zlib: "zlib";
+    zstd: "zstd";
+}
+
+reference type Layer
+{
+    compression: DataCompression;
+    data: uint32[]!;
+    drawOrder: string_utf8;
+    encoding: string_utf8;
+    width: int32;
+    height: int32;
+    image: string_utf8;
+    layers: Layer[];
+    name: string_utf8;
+    objects: Object[];
+    offsetX: float64;
+    offsetY: float64;
+    opacity: float64;
+    properties: Property[];
+    startX: int32;
+    startY: int32;
+    tintColor: string_utf8;
+    transparentColor: string_utf8;
+    type: string_utf8;
+    visible: bool;
+}
+
+value type Tile
+{
+    id:             int32;
+    image:          string_utf8;
+    imageHeight:    int32;
+    imageWidth:     int32;
+    objectGroup:    Layer;
+    probability:    float64;
+    properties:     Property[];
+    type:           string_utf8;
+}
+
+reference type Tileset
+{
+    backgroundColor: string_utf8;
+    columns: int32!;
+    firstgid: int32!;
+    image: string_utf8;
+    imageHeight: int32;
+    imageWidth: int32;
+    margin: int32;
+    name: string_utf8;
+    objectAlignment: string_utf8;
+    properties: Property[];
+    source: string_utf8;
+    spacing: int32;
+    tileCount: int32;
+    tiledVersion: int32;
+    tileHeight: int32;
+    tiles: Tile[];
+    tileWidth: int32;
+    transparentColor: string_utf8;
+    type: string_utf8;
+}
+
+reference type Map
+{
+    backgroundColor: string_utf8;
+    compressionLevel: int32;
+    height: int32;
+    hexsideLength: int32;
+    infinite: bool;
+    layers: Layer[];
+    nextLayerId: int32;
+    nextObjectId: int32;
+    orientation: string_utf8;
+    properties: Property[];
+    renderOrder: string_utf8;
+    staggerAxis: string_utf8;
+    tiledVersion: string_utf8;
+    tileHeight: int32;
+    tilesets: Tileset[];
+    tileWidth: int32;
+    type: string;
+    width: int32;
+}

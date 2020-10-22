@@ -1,0 +1,17 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/jasterialise-core
+jasterialise-core.so
+jasterialise-core.dylib
+jasterialise-core.dll
+jasterialise-core.a
+jasterialise-core.lib
+jasterialise-core-test-*
+*.exe
+*.o
+*.obj
+*.lst
+.vscode/
+.vs/
