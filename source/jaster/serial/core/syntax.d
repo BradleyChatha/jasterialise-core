@@ -184,6 +184,7 @@ abstract class AstNode
     }
 
     T as(T)()
+    out(obj; obj !is null, "Cannot convert this node into a "~T.stringof)
     {
         return cast(T)this;
     }
@@ -194,23 +195,6 @@ abstract class AstNode
         return this._type;
     }
 }
-
-// final class Identifier : AstNode
-// {
-//     string value;
-
-//     this()
-//     {
-//         super(NodeType.IDENTIFIER);
-//     }
-
-//     static Identifier fromDefault(ref Lexer lexer)
-//     {
-//         auto node = new Identifier();
-//         node.value = lexer.enforceFrontTypeAndPop([TokenType.IDENTIFIER]).text;
-//         return node;
-//     }
-// }
 
 final class String : AstNode
 {
