@@ -22,6 +22,7 @@ enum TokenType
     INTEGER,
     FLOAT,
     IDENTIFIER,
+    BOOLEAN,
 
     OP_COLON,
     OP_AT,
@@ -212,6 +213,10 @@ struct Lexer
             this.nextChar();
 
         this.createTokenFromRange(TokenType.IDENTIFIER, start, this._cursor);
+
+        if(this._front.text == "yes" || this._front.text == "no"
+        || this._front.text == "true" || this._front.text == "false")
+            this._front.type = TokenType.BOOLEAN;
         
         const kwType = this.getKeyword(this.front.text);
         if(kwType != TokenType.ERROR)
@@ -411,5 +416,12 @@ version(unittest)
     unittest
     {
         Lexer("ABC\n#Easy as\n123").array.mapText.should.equal(["ABC", "123"]);
+    }
+
+    @("Lexer can handle bools")
+    unittest
+    {
+        foreach(word; ["yes", "no", "true", "false"])
+            Lexer(word).front.type.should.equal(TokenType.BOOLEAN);
     }
 }

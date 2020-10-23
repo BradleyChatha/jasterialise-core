@@ -17,6 +17,7 @@ enum NodeType
     IDENTIFIER,
     STRING,
     NUMBER,
+    BOOLEAN,
     NAMESPACE,
     ATTRIBUTE,
     MEMBER_TYPE,
@@ -88,6 +89,7 @@ AstNode nextValue(AllowValueType AllowedTypes)(ref Lexer lexer)
             case STRING: return String.fromDefault(lexer);
             case FLOAT:
             case INTEGER: return Number.fromDefault(lexer);
+            case BOOLEAN: return Boolean.fromDefault(lexer);
         }
 
         default:
@@ -270,6 +272,49 @@ final class Number : AstNode
     long asInteger() { assert(this.isInteger, "I'm not an integer"); return this._integer; }
 }
 
+final class Boolean : AstNode
+{
+    bool value;
+
+    this()
+    {
+        super(NodeType.BOOLEAN);
+    }
+
+    static Boolean fromDefault(ref Lexer lexer)
+    {
+        auto node = new Boolean();
+
+        const token = lexer.enforceFrontTypeAndPop([TokenType.BOOLEAN]);
+        switch(token.text)
+        {
+            case "yes":
+            case "true":
+                node.value = true;
+                break;
+
+            case "no":
+            case "false":
+                node.value = false;
+                break;
+
+            default: assert(false, "This is not a boolean: " ~ token.text);
+        }
+
+        return node;
+    }
+    @("Boolean.fromDefault")
+    unittest
+    {
+        auto lexer = Lexer(`yes no true false`);
+        Boolean.fromDefault(lexer).value.should.equal(true);
+        Boolean.fromDefault(lexer).value.should.equal(false);
+        Boolean.fromDefault(lexer).value.should.equal(true);
+        Boolean.fromDefault(lexer).value.should.equal(false);
+        ({Boolean.fromDefault(lexer);}).should.throwAnyException.because("No more tokens");
+    }
+}
+
 final class NamespaceStatement : AstNode
 {
     string name;
@@ -335,7 +380,7 @@ final class Attribute : AstNode
     @("Attribute.fromDefault")
     unittest
     {
-        auto lexer = Lexer(`@NoValue() @SingleValue(20) @MultiValue(1, -2.0, "Lala")`);
+        auto lexer = Lexer(`@NoValue() @SingleValue(20) @MultiValue(yes, -2.0, "Lala")`);
 
         auto attr = Attribute.fromDefault(lexer);
         attr.name.should.equal("NoValue");
@@ -350,8 +395,8 @@ final class Attribute : AstNode
         attr = Attribute.fromDefault(lexer);
         attr.name.should.equal("MultiValue");
         attr.values.length.should.equal(3);
-        attr.values[0].type.should.equal(NodeType.NUMBER);
-        attr.values[0].as!Number.asInteger.should.equal(1);
+        attr.values[0].type.should.equal(NodeType.BOOLEAN);
+        attr.values[0].as!Boolean.value.should.equal(true);
         attr.values[1].type.should.equal(NodeType.NUMBER);
         attr.values[1].as!Number.asFloat.should.be.lessThan(0);
         attr.values[2].type.should.equal(NodeType.STRING);
