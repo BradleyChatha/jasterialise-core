@@ -34,7 +34,14 @@ enum TokenType
     OP_SQUARE_BRACKET_L,
     OP_SQUARE_BRACKET_R,
     OP_DOT,
-    OP_COMMA
+    OP_COMMA,
+
+    KW_TYPE,
+    KW_MULTI,
+    KW_NAMESPACE,
+    KW_VALUE,
+    KW_ENUM,
+    KW_REFERENCE
 }
 
 struct Token
@@ -66,6 +73,21 @@ struct Lexer
         OperatorInfo(']', TokenType.OP_SQUARE_BRACKET_R),
         OperatorInfo('.', TokenType.OP_DOT),
         OperatorInfo(',', TokenType.OP_COMMA),
+    ];
+
+    private struct KeywordInfo
+    {
+        string word;
+        TokenType type;
+    }
+    private static immutable KEYWORDS =
+    [
+        KeywordInfo("type",         TokenType.KW_TYPE),
+        KeywordInfo("multi",        TokenType.KW_MULTI),
+        KeywordInfo("namespace",    TokenType.KW_NAMESPACE),
+        KeywordInfo("value",        TokenType.KW_VALUE),
+        KeywordInfo("enum",         TokenType.KW_ENUM),
+        KeywordInfo("reference",    TokenType.KW_REFERENCE),
     ];
 
     enum COMMENT_CHAR = '#';
@@ -190,6 +212,10 @@ struct Lexer
             this.nextChar();
 
         this.createTokenFromRange(TokenType.IDENTIFIER, start, this._cursor);
+        
+        const kwType = this.getKeyword(this.front.text);
+        if(kwType != TokenType.ERROR)
+            this._front.type = kwType;
     }
     
     @nogc
@@ -229,6 +255,20 @@ struct Lexer
             static foreach(op; OPERATORS)
             {
                 case op.ch: return op.type;
+            }
+
+            default: return TokenType.ERROR;
+        }
+    }
+
+    @nogc
+    private TokenType getKeyword(string word) pure nothrow
+    {
+        switch(word)
+        {
+            static foreach(kw; KEYWORDS)
+            {
+                case kw.word: return kw.type;
             }
 
             default: return TokenType.ERROR;
@@ -342,10 +382,12 @@ version(unittest)
         Lexer(`:@ (`).array.mapText.should.equal([":", "@", "("]);
     }
 
-    @("Lexer can handle identifiers")
+    @("Lexer can handle identifiers/keywords")
     unittest
     {
         Lexer("A:B\nC D").array.mapText.should.equal(["A", ":", "B", "C", "D"]);
+        Lexer("A").front.type.should.equal(TokenType.IDENTIFIER);
+        Lexer("type").front.type.should.equal(TokenType.KW_TYPE);
     }
 
     @("Lexer can handle numbers")
