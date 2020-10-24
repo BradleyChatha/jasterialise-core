@@ -705,12 +705,16 @@ final class SymbolFqn : AstNode
     @("SymbolFqn.fromDefault")
     unittest
     {
-        auto lexer = Lexer("Tile Tile.x.y.z : .x.y");
+        auto lexer = Lexer("Tile Tile.x.y.z : .x.y : .x : .");
 
         SymbolFqn.fromDefault(lexer).fqn.should.equal("Tile");
         SymbolFqn.fromDefault(lexer).fqn.should.equal("Tile.x.y.z");
         lexer.popFront();
         SymbolFqn.fromDefault(lexer).fqn.should.equal(".x.y");
+        lexer.popFront();
+        SymbolFqn.fromDefault(lexer).isRelative.should.equal(true);
+        lexer.popFront();
+        ({SymbolFqn.fromDefault(lexer);}).should.throwAnyException.because("No identifier after dot.");
     }
 }
 // END NODES
