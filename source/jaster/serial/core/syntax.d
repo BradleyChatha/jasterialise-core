@@ -669,7 +669,8 @@ final class GlobalAttributesStatement : AstNode
 final class SymbolFqn : AstNode
 {
     string fqn;
-    bool isRelative;
+    
+    bool isRelative() { return fqn.length > 0 && fqn[0] == '.'; }
 
     this()
     {
@@ -690,7 +691,6 @@ final class SymbolFqn : AstNode
         {
             auto nearToken = lexer.front;
 
-            node.isRelative = true;
             lexer.popFront();
             if(lexer.empty)
                 nearToken.onUnexpectedEof("Expected identifier after dot.");
