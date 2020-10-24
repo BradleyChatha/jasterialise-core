@@ -22,7 +22,8 @@ enum NodeType
     ATTRIBUTE,
     MEMBER_TYPE,
     OBJECT_TYPE,
-    GLOBAL_ATTRIBUTES
+    GLOBAL_ATTRIBUTES,
+    NAMED_VALUE
 }
 
 // START HELPER FUNCS
@@ -78,6 +79,7 @@ enum AllowValueType
 {
     NONE,
     BASIC = 1 << 0,
+    NAMED = 1 << 1
 }
 
 AstNode nextValue(AllowValueType AllowedTypes)(ref Lexer lexer)
@@ -90,6 +92,11 @@ AstNode nextValue(AllowValueType AllowedTypes)(ref Lexer lexer)
             case FLOAT:
             case INTEGER: return Number.fromDefault(lexer);
             case BOOLEAN: return Boolean.fromDefault(lexer);
+        }
+
+        static if(AllowedTypes & AllowValueType.NAMED)
+        {
+            case IDENTIFIER: return NamedValue.fromDefault!(AllowedTypes & ~AllowValueType.NAMED)(lexer);
         }
 
         default:
@@ -315,6 +322,37 @@ final class Boolean : AstNode
     }
 }
 
+final class NamedValue : AstNode
+{
+    string  name;
+    AstNode value;
+
+    this()
+    {
+        super(NodeType.NAMED_VALUE);
+    }
+
+    static NamedValue fromDefault(AllowValueType AllowedTypes)(ref Lexer lexer)
+    {
+        auto node = new NamedValue();
+
+        node.name = lexer.enforceFrontTypeAndPop([TokenType.IDENTIFIER]).text;
+        lexer.enforceFrontTypeAndPop([TokenType.OP_COLON]);
+        node.value = lexer.nextValue!AllowedTypes();
+
+        return node;
+    }
+    @("NamedValue.fromDefault")
+    unittest
+    {
+        auto lexer = Lexer(`named: "value"`);
+        auto value = NamedValue.fromDefault!(AllowValueType.BASIC)(lexer);
+        value.name.should.equal("named");
+        value.value.type.should.equal(NodeType.STRING);
+        value.value.as!String.value.should.equal("value");
+    }
+}
+
 final class NamespaceStatement : AstNode
 {
     string name;
@@ -367,7 +405,7 @@ final class Attribute : AstNode
 
         while(!lexer.empty)
         {
-            node.values ~= lexer.nextValue!(AllowValueType.BASIC)();
+            node.values ~= lexer.nextValue!(AllowValueType.BASIC | AllowValueType.NAMED)();
 
             const operator = lexer.enforceFrontTypeAndPop([TokenType.OP_COMMA, TokenType.OP_BRACKET_R]).type;
             if(operator == TokenType.OP_BRACKET_R)
@@ -380,7 +418,7 @@ final class Attribute : AstNode
     @("Attribute.fromDefault")
     unittest
     {
-        auto lexer = Lexer(`@NoValue() @SingleValue(20) @MultiValue(yes, -2.0, "Lala")`);
+        auto lexer = Lexer(`@NoValue() @SingleValue(20) @MultiValue(nope: yes, -2.0, "Lala")`);
 
         auto attr = Attribute.fromDefault(lexer);
         attr.name.should.equal("NoValue");
@@ -395,8 +433,9 @@ final class Attribute : AstNode
         attr = Attribute.fromDefault(lexer);
         attr.name.should.equal("MultiValue");
         attr.values.length.should.equal(3);
-        attr.values[0].type.should.equal(NodeType.BOOLEAN);
-        attr.values[0].as!Boolean.value.should.equal(true);
+        attr.values[0].type.should.equal(NodeType.NAMED_VALUE);
+        attr.values[0].as!NamedValue.name.should.equal("nope");
+        attr.values[0].as!NamedValue.value.as!Boolean.value.should.equal(true);
         attr.values[1].type.should.equal(NodeType.NUMBER);
         attr.values[1].as!Number.asFloat.should.be.lessThan(0);
         attr.values[2].type.should.equal(NodeType.STRING);
