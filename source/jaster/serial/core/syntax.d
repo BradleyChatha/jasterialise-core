@@ -97,7 +97,17 @@ AstNode nextValue(AllowValueType AllowedTypes)(ref Lexer lexer)
         }
 
         case IDENTIFIER:
-            static if(AllowedTypes & AllowValueType.NAMED)
+            static if(AllowedTypes & AllowValueType.NAMED && AllowedTypes & AllowValueType.SYMBOL_FQN)
+            {
+                auto copy = lexer;
+                copy.popFront();
+
+                if(copy.front.type == TokenType.OP_COLON)
+                    return NamedValue.fromDefault!(AllowedTypes & ~AllowValueType.NAMED)(lexer);
+                else
+                    return SymbolFqn.fromDefault(lexer);
+            }
+            else static if(AllowedTypes & AllowValueType.NAMED)
                 return NamedValue.fromDefault!(AllowedTypes & ~AllowValueType.NAMED)(lexer);
             else static if(AllowedTypes & AllowValueType.SYMBOL_FQN)
                 return SymbolFqn.fromDefault(lexer);
@@ -410,7 +420,7 @@ final class Attribute : AstNode
 
         while(!lexer.empty)
         {
-            node.values ~= lexer.nextValue!(AllowValueType.BASIC | AllowValueType.NAMED)();
+            node.values ~= lexer.nextValue!(AllowValueType.BASIC | AllowValueType.NAMED | AllowValueType.SYMBOL_FQN)();
 
             const operator = lexer.enforceFrontTypeAndPop([TokenType.OP_COMMA, TokenType.OP_BRACKET_R]).type;
             if(operator == TokenType.OP_BRACKET_R)
@@ -423,7 +433,7 @@ final class Attribute : AstNode
     @("Attribute.fromDefault")
     unittest
     {
-        auto lexer = Lexer(`@NoValue() @SingleValue(20) @MultiValue(nope: yes, -2.0, "Lala")`);
+        auto lexer = Lexer(`@NoValue() @SingleValue(20) @MultiValue(nope: yes, -2.0, "Lala", Type.member)`);
 
         auto attr = Attribute.fromDefault(lexer);
         attr.name.should.equal("NoValue");
@@ -437,7 +447,7 @@ final class Attribute : AstNode
 
         attr = Attribute.fromDefault(lexer);
         attr.name.should.equal("MultiValue");
-        attr.values.length.should.equal(3);
+        attr.values.length.should.equal(4);
         attr.values[0].type.should.equal(NodeType.NAMED_VALUE);
         attr.values[0].as!NamedValue.name.should.equal("nope");
         attr.values[0].as!NamedValue.value.as!Boolean.value.should.equal(true);
@@ -445,6 +455,8 @@ final class Attribute : AstNode
         attr.values[1].as!Number.asFloat.should.be.lessThan(0);
         attr.values[2].type.should.equal(NodeType.STRING);
         attr.values[2].as!String.value.should.equal("Lala");
+        attr.values[3].type.should.equal(NodeType.SYMBOL_FQN);
+        attr.values[3].as!SymbolFqn.fqn.should.equal("Type.member");
     }
 }
 
