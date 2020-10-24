@@ -23,7 +23,8 @@ enum NodeType
     MEMBER_TYPE,
     OBJECT_TYPE,
     GLOBAL_ATTRIBUTES,
-    NAMED_VALUE
+    NAMED_VALUE,
+    SYMBOL_FQN
 }
 
 // START HELPER FUNCS
@@ -78,8 +79,9 @@ bool isOperator(TokenType type)
 enum AllowValueType
 {
     NONE,
-    BASIC = 1 << 0,
-    NAMED = 1 << 1
+    BASIC      = 1 << 0,
+    NAMED      = 1 << 1,
+    SYMBOL_FQN = 1 << 2
 }
 
 AstNode nextValue(AllowValueType AllowedTypes)(ref Lexer lexer)
@@ -94,10 +96,13 @@ AstNode nextValue(AllowValueType AllowedTypes)(ref Lexer lexer)
             case BOOLEAN: return Boolean.fromDefault(lexer);
         }
 
-        static if(AllowedTypes & AllowValueType.NAMED)
-        {
-            case IDENTIFIER: return NamedValue.fromDefault!(AllowedTypes & ~AllowValueType.NAMED)(lexer);
-        }
+        case IDENTIFIER:
+            static if(AllowedTypes & AllowValueType.NAMED)
+                return NamedValue.fromDefault!(AllowedTypes & ~AllowValueType.NAMED)(lexer);
+            else static if(AllowedTypes & AllowValueType.SYMBOL_FQN)
+                return SymbolFqn.fromDefault(lexer);
+            else
+                goto default;
 
         default:
             lexer.front.onUnexpectedToken("Expected a value");
@@ -646,6 +651,66 @@ final class GlobalAttributesStatement : AstNode
         node.attributes[0].name.should.equal("Some");
         node.attributes[1].name.should.equal("Attributes");
         node.attributes[1].values.length.should.equal(2);
+    }
+}
+
+final class SymbolFqn : AstNode
+{
+    string fqn;
+    bool isRelative;
+
+    this()
+    {
+        super(NodeType.SYMBOL_FQN);
+    }
+
+    static SymbolFqn fromDefault(ref Lexer lexer)
+    {
+        import std.exception : assumeUnique;
+
+        auto node = new SymbolFqn();
+        lexer.enforceFrontType([TokenType.IDENTIFIER, TokenType.OP_DOT]);
+
+        char[] fqn;
+        fqn.reserve(64);
+        
+        if(lexer.front.type == TokenType.OP_DOT)
+        {
+            auto nearToken = lexer.front;
+
+            node.isRelative = true;
+            lexer.popFront();
+            if(lexer.empty)
+                nearToken.onUnexpectedEof("Expected identifier after dot.");
+
+            fqn ~= '.';
+        }
+
+        fqn ~= lexer.enforceFrontTypeAndPop([TokenType.IDENTIFIER]).text;
+
+        while(!lexer.empty)
+        {
+            if(lexer.front.type != TokenType.OP_DOT)
+                break;
+
+            lexer.enforceFrontTypeAndPop([TokenType.OP_DOT]);
+            
+            fqn ~= '.';
+            fqn ~= lexer.enforceFrontTypeAndPop([TokenType.IDENTIFIER]).text;
+        }
+
+        node.fqn = fqn.assumeUnique;
+        return node;
+    }
+    @("SymbolFqn.fromDefault")
+    unittest
+    {
+        auto lexer = Lexer("Tile Tile.x.y.z : .x.y");
+
+        SymbolFqn.fromDefault(lexer).fqn.should.equal("Tile");
+        SymbolFqn.fromDefault(lexer).fqn.should.equal("Tile.x.y.z");
+        lexer.popFront();
+        SymbolFqn.fromDefault(lexer).fqn.should.equal(".x.y");
     }
 }
 // END NODES
