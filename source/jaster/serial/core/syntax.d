@@ -472,6 +472,7 @@ final class MemberType : AstNode
 {
     string name;
     bool isRequired;
+    bool isArray;
 
     this()
     {
@@ -483,6 +484,13 @@ final class MemberType : AstNode
         auto node = new MemberType();
         node.name = lexer.enforceFrontTypeAndPop([TokenType.IDENTIFIER]).text;
         
+        if(lexer.front.type == TokenType.OP_SQUARE_BRACKET_L)
+        {
+            node.isArray = true;
+            lexer.popFront();
+            lexer.enforceFrontTypeAndPop([TokenType.OP_SQUARE_BRACKET_R]);
+        }
+
         if(lexer.front.type == TokenType.OP_EXCLAMATION)
         {
             node.isRequired = true;
@@ -494,7 +502,7 @@ final class MemberType : AstNode
     @("MemberType.fromDefault")
     unittest
     {
-        auto lexer = Lexer("int32 string_utf8!");
+        auto lexer = Lexer("int32 string_utf8! bool[]");
 
         auto type = MemberType.fromDefault(lexer);
         type.name.should.equal("int32");
@@ -503,6 +511,10 @@ final class MemberType : AstNode
         type = MemberType.fromDefault(lexer);
         type.name.should.equal("string_utf8");
         type.isRequired.should.equal(true);
+
+        type = MemberType.fromDefault(lexer);
+        type.name.should.equal("bool");
+        type.isArray.should.equal(true);
     }
 }
 
