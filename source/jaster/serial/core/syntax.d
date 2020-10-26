@@ -24,7 +24,9 @@ enum NodeType
     OBJECT_TYPE,
     GLOBAL_ATTRIBUTES,
     NAMED_VALUE,
-    SYMBOL_FQN
+    SYMBOL_FQN,
+    MEMBER_DECLARATION,
+    TYPE_DECLARATION
 }
 
 // START HELPER FUNCS
@@ -94,6 +96,12 @@ AstNode nextValue(AllowValueType AllowedTypes)(ref Lexer lexer)
             case FLOAT:
             case INTEGER: return Number.fromDefault(lexer);
             case BOOLEAN: return Boolean.fromDefault(lexer);
+        }
+        
+        static if(AllowedTypes & AllowValueType.SYMBOL_FQN)
+        {
+            case OP_DOT:
+                return SymbolFqn.fromDefault(lexer);
         }
 
         case IDENTIFIER:
@@ -618,6 +626,10 @@ final class ObjectType : AstNode
     @property @safe @nogc nothrow:
     
     bool isNameless() { return this.name is null; }
+    bool isValueType() { return (this.class_ & ObjectTypeClass.VALUE) > 0; }
+    bool isEnumType() { return (this.class_ & ObjectTypeClass.ENUM) > 0; }
+    bool isMultiType() { return (this.class_ & ObjectTypeClass.MULTI) > 0; }
+    bool isReferenceType() { return (this.class_ & ObjectTypeClass.REFERENCE) > 0; }
 }
 
 final class GlobalAttributesStatement : AstNode
@@ -727,6 +739,122 @@ final class SymbolFqn : AstNode
         SymbolFqn.fromDefault(lexer).isRelative.should.equal(true);
         lexer.popFront();
         ({SymbolFqn.fromDefault(lexer);}).should.throwAnyException.because("No identifier after dot.");
+    }
+}
+
+final class MemberDeclaration : AstNode
+{
+    string name;
+    MemberType type;
+    Attribute[] attributes;
+    
+    this()
+    {
+        super(NodeType.MEMBER_DECLARATION);
+    }
+
+    static MemberDeclaration fromDefault(ref Lexer lexer)
+    {
+        auto node = new MemberDeclaration();
+
+        node.name = lexer.enforceFrontTypeAndPop([TokenType.IDENTIFIER]).text;
+        lexer.enforceFrontTypeAndPop([TokenType.OP_COLON]);
+        node.type = MemberType.fromDefault(lexer);
+
+        auto nearToken = lexer.front;
+        while(!lexer.empty)
+        {
+            if(lexer.front.type == TokenType.OP_DIVA)
+            {
+                lexer.popFront();
+                return node;
+            }
+            else if(lexer.front.type == TokenType.OP_AT)
+                node.attributes ~= Attribute.fromDefault(lexer);
+            else
+                lexer.enforceFrontType([TokenType.OP_DIVA, TokenType.OP_AT]); // Since it already has a good error message.
+        }
+
+        nearToken.onUnexpectedEof("When parsing member declaration");
+        assert(0);
+    }
+    @("MemberDeclaration.fromDefault")
+    unittest
+    {
+        auto lexer = Lexer("tuna: bacon!; apples: justin @Beaver();");
+
+        auto node = MemberDeclaration.fromDefault(lexer);
+        node.name.should.equal("tuna");
+        node.type.name.should.equal("bacon");
+        node.type.isRequired.should.equal(true);
+        node.attributes.length.should.equal(0);
+
+        node = MemberDeclaration.fromDefault(lexer);
+        node.name.should.equal("apples");
+        node.type.name.should.equal("justin");
+        node.attributes.length.should.equal(1);
+        node.attributes[0].name.should.equal("Beaver");
+    }
+}
+
+final class TypeDeclaration : AstNode
+{
+    ObjectType          type;
+    Attribute[]         attributes;
+    MemberDeclaration[] members;
+
+    this()
+    {
+        super(NodeType.TYPE_DECLARATION);
+    }
+
+    static TypeDeclaration fromDefault(ref Lexer lexer)
+    {
+        auto node = new TypeDeclaration();
+
+        node.type = ObjectType.fromDefault(lexer);
+        lexer.enforceFrontTypeAndPop([TokenType.OP_CURLY_BRACKET_L]);
+
+        Token nearToken;
+        while(!lexer.empty)
+        {
+            nearToken = lexer.front;
+            lexer.enforceFrontType([TokenType.OP_AT, TokenType.IDENTIFIER, TokenType.OP_CURLY_BRACKET_R]);
+
+            if(lexer.front.type == TokenType.OP_AT)
+                node.attributes ~= Attribute.fromDefault(lexer);
+            else if(lexer.front.type == TokenType.IDENTIFIER)
+                node.members ~= MemberDeclaration.fromDefault(lexer);
+            else if(lexer.front.type == TokenType.OP_CURLY_BRACKET_R)
+            {
+                lexer.popFront();
+                return node;
+            }
+            else
+                assert(false);
+        }
+
+        nearToken.onUnexpectedEof("When parsing type declaration");
+        assert(false);
+    }
+    ///
+    @("TypeDeclaration.fromDefault")
+    unittest
+    {
+        auto lexer = Lexer("value type Apples { @IsBacon(really: yes, who: .tuna) tuna: bacon!; boobs: fantasy @LolImAVirgin(); }");
+
+        auto node = TypeDeclaration.fromDefault(lexer);
+        node.type.name.should.equal("Apples");
+        node.type.isValueType.should.equal(true);
+        node.attributes.length.should.equal(1);
+        node.attributes[0].name.should.equal("IsBacon");
+        node.members.length.should.equal(2);
+        node.members[0].name.should.equal("tuna");
+        node.members[0].type.name.should.equal("bacon");
+        node.members[1].name.should.equal("boobs");
+        node.members[1].type.name.should.equal("fantasy");
+        node.members[1].attributes.length.should.equal(1);
+        node.members[1].attributes[0].name.should.equal("LolImAVirgin");
     }
 }
 // END NODES
