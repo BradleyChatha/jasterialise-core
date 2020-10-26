@@ -531,6 +531,7 @@ final class ObjectType : AstNode
 {
     string          name;
     ObjectTypeClass class_;
+    MemberType      inheritType;
 
     this()
     {
@@ -580,6 +581,13 @@ final class ObjectType : AstNode
                     {
                         node.name = lexer.front.text;
                         lexer.popFront();
+
+                        if(lexer.front.type == TokenType.OP_COLON)
+                        {
+                            lexer.popFront();
+                            node.inheritType = MemberType.fromDefault(lexer);
+                        }
+
                         return node;
                     }
                     lexer.front.onUnexpectedToken("Unexpected identifier for nameless object type.");
@@ -613,10 +621,15 @@ final class ObjectType : AstNode
         }
 
         // Passing (Named)
-        auto lexer = Lexer("type Bacon multi type Apples");
+        auto lexer = Lexer("type Bacon multi type Apples enum type TheNew : boston");
 
         testType(ObjectType.fromDefault(lexer), "Bacon", ObjectTypeClass.NONE);
         testType(ObjectType.fromDefault(lexer), "Apples", ObjectTypeClass.MULTI);
+
+        auto type = ObjectType.fromDefault(lexer);
+        testType(type, "TheNew", ObjectTypeClass.ENUM);
+        type.inheritType.should.not.equal(null);
+        type.inheritType.name.should.equal("boston");
 
         // Passing (Nameless)
         lexer = Lexer("type: multi type:");
