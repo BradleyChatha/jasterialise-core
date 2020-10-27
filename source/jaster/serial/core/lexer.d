@@ -6,7 +6,7 @@ import std.format : format;
 struct DebugInfo
 {
     string file;
-    uint line;
+    uint line = 1;
     uint column;
 
     string toString() const
