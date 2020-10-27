@@ -135,21 +135,22 @@ AstNode nextValue(AllowValueType AllowedTypes)(ref Lexer lexer)
 }
 // END HELPER FUNCS
 
-final class JasterialiseFile
+// Raw AST of a jser file without any additional processing beyond that.
+final class JasterialiseFileRaw
 {
     private
     {
         AstNode[] _nodes;
     }
 
-    static JasterialiseFile fromString(string code)
+    static JasterialiseFileRaw fromString(string code)
     {
-        return JasterialiseFile.fromLexer(Lexer(code));
+        return JasterialiseFileRaw.fromLexer(Lexer(code));
     }
 
-    static JasterialiseFile fromLexer(Lexer lexer)
+    static JasterialiseFileRaw fromLexer(Lexer lexer)
     {
-        auto file = new JasterialiseFile();
+        auto file = new JasterialiseFileRaw();
 
         while(!lexer.empty)
         {
@@ -158,6 +159,12 @@ final class JasterialiseFile
         }
 
         return file;
+    }
+
+    void visitAllTopLevel(void delegate(AstNode node) visitor)
+    {
+        foreach(node; this._nodes)
+            visitor(node);
     }
 
     private AstNode nextNode(ref Lexer lexer)
@@ -534,10 +541,10 @@ final class MemberType : AstNode
 enum ObjectTypeClass
 {
     NONE,
-    VALUE,
-    REFERENCE,
-    ENUM,
-    MULTI
+    VALUE       = 1 << 0,
+    REFERENCE   = 1 << 1,
+    ENUM        = 1 << 2,
+    MULTI       = 1 << 3
 }
 
 final class ObjectType : AstNode
@@ -897,6 +904,7 @@ final class TypeDeclaration : AstNode
 
         lexer = Lexer(`enum type Names : string { me: "Bradley"; you: "Unfortunate Coder"; }`);
         node = TypeDeclaration.fromDefault(lexer);
+        node.type.inheritType.should.not.beNull;
         node.enumMembers.length.should.equal(2);
         node.enumMembers[0].name.should.equal("me");
         node.enumMembers[0].value.as!String.value.should.equal("Bradley");
@@ -988,6 +996,6 @@ version(unittest)
     @("Can successfully parse the AST of a valid file.")
     unittest
     {
-        auto file = JasterialiseFile.fromString(TEST_INPUT);
+        auto file = JasterialiseFileRaw.fromString(TEST_INPUT);
     }
 }
