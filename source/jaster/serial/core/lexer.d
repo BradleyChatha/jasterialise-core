@@ -220,12 +220,6 @@ struct Lexer
         const kwType = this.getKeyword(this.front.text);
         if(kwType != TokenType.ERROR)
             this._front.type = kwType;
-
-        if(this._front.text.length > 0 && this._front.text[0] == '^')
-        {
-            this.enforce(this._front.text.length > 1, "Escaped identifiers must have at least 2 characters.");
-            this._front.text = this._front.text[1..$];
-        }
     }
     
     @nogc
@@ -302,7 +296,6 @@ struct Lexer
          || (ch >= 'A' && ch <= 'Z')
          || (ch >= '0' && ch <= '9')
          || ch == '_'
-         || ch == '^'
         );
     }
 
@@ -399,8 +392,6 @@ version(unittest)
         Lexer("A:B\nC D").array.mapText.should.equal(["A", ":", "B", "C", "D"]);
         Lexer("A").front.type.should.equal(TokenType.IDENTIFIER);
         Lexer("type").front.type.should.equal(TokenType.KW_TYPE);
-        Lexer("^type").front.type.should.equal(TokenType.IDENTIFIER);
-        Lexer("^type").front.text.should.equal("type");
     }
 
     @("Lexer can handle numbers")

@@ -3,6 +3,7 @@ module jaster.serial.core.syntax;
 import std.conv      : to;
 import std.format    : format;
 import std.exception : enforce;
+import std.typecons  : Flag;
 import jaster.serial.core;
 
 version(unittest)
@@ -10,6 +11,8 @@ version(unittest)
     import core.exception;
     import fluent.asserts;
 }
+
+alias KeywordsAreIdentifiers = Flag!"kwai";
 
 enum NodeType
 {
@@ -30,17 +33,20 @@ enum NodeType
 }
 
 // START HELPER FUNCS
-void enforceFrontType(Lexer lexer, TokenType[] expectedTypes)
+void enforceFrontType(Lexer lexer, TokenType[] expectedTypes, KeywordsAreIdentifiers keywordsAreIdentifiers = KeywordsAreIdentifiers.no)
 {
     import std.algorithm : canFind;
-    enforce(expectedTypes.canFind(lexer.front.type),
+    enforce(
+        (keywordsAreIdentifiers)
+        ? expectedTypes.canFind(lexer.front.type) || (lexer.front.type.isKeyword && expectedTypes.canFind(TokenType.IDENTIFIER))
+        : expectedTypes.canFind(lexer.front.type),
         "%s: Expected any of %s but got a %s.".format(lexer.front.debug_, expectedTypes, lexer.front.type)
     );
 }
 
-Token enforceFrontTypeAndPop(ref Lexer lexer, TokenType[] expectedTypes)
+Token enforceFrontTypeAndPop(ref Lexer lexer, TokenType[] expectedTypes, KeywordsAreIdentifiers keywordsAreIdentifiers = KeywordsAreIdentifiers.no)
 {
-    lexer.enforceFrontType(expectedTypes);
+    lexer.enforceFrontType(expectedTypes, keywordsAreIdentifiers);
     auto value = lexer.front;
     lexer.popFront();
 
@@ -789,7 +795,7 @@ final class MemberDeclaration : AstNode
     {
         auto node = new MemberDeclaration();
 
-        node.name = lexer.enforceFrontTypeAndPop([TokenType.IDENTIFIER]).text;
+        node.name = lexer.enforceFrontTypeAndPop([TokenType.IDENTIFIER], KeywordsAreIdentifiers.yes).text;
         lexer.enforceFrontTypeAndPop([TokenType.OP_COLON]);
         node.type = MemberType.fromDefault(lexer);
 
@@ -902,11 +908,11 @@ final class TypeDeclaration : AstNode
         while(!lexer.empty)
         {
             nearToken = lexer.front;
-            lexer.enforceFrontType([TokenType.OP_AT, TokenType.IDENTIFIER, TokenType.OP_CURLY_BRACKET_R]);
+            lexer.enforceFrontType([TokenType.OP_AT, TokenType.IDENTIFIER, TokenType.OP_CURLY_BRACKET_R], KeywordsAreIdentifiers.yes);
 
             if(lexer.front.type == TokenType.OP_AT)
                 node.attributes ~= Attribute.fromDefault(lexer);
-            else if(lexer.front.type == TokenType.IDENTIFIER)
+            else if(lexer.front.type == TokenType.IDENTIFIER || lexer.front.type.isKeyword)
                 node.members ~= MemberDeclaration.fromDefault(lexer);
             else if(lexer.front.type == TokenType.OP_CURLY_BRACKET_R)
             {
