@@ -826,7 +826,9 @@ final class TypeDeclaration : AstNode
 {
     ObjectType          type;
     Attribute[]         attributes;
-    MemberDeclaration[] members;
+    MemberDeclaration[] members;      // Only for basic types NONE VALUE REFERENCE
+    MemberType[]        multiMembers; // Only for MULTI
+    NamedValue[]        enumMembers;  // Only for ENUM
 
     this()
     {
@@ -840,6 +842,55 @@ final class TypeDeclaration : AstNode
         node.type = ObjectType.fromDefault(lexer);
         lexer.enforceFrontTypeAndPop([TokenType.OP_CURLY_BRACKET_L]);
 
+        final switch(node.type.class_) with(ObjectTypeClass)
+        {
+            case NONE:
+            case VALUE:
+            case REFERENCE:
+                return TypeDeclaration.parseBasicType(node, lexer);
+
+            case MULTI:
+                return TypeDeclaration.parseMultiType(node, lexer);
+
+            case ENUM:
+                return TypeDeclaration.parseEnumType(node, lexer);
+        }
+    }
+    ///
+    @("TypeDeclaration.fromDefault")
+    unittest
+    {
+        auto lexer = Lexer("value type Apples { @IsBacon(really: yes, who: .tuna) tuna: bacon!; boobs: fantasy @LolImAVirgin(); }");
+
+        auto node = TypeDeclaration.fromDefault(lexer);
+        node.type.name.should.equal("Apples");
+        node.type.isValueType.should.equal(true);
+        node.attributes.length.should.equal(1);
+        node.attributes[0].name.should.equal("IsBacon");
+        node.members.length.should.equal(2);
+        node.members[0].name.should.equal("tuna");
+        node.members[0].type.name.should.equal("bacon");
+        node.members[1].name.should.equal("boobs");
+        node.members[1].type.name.should.equal("fantasy");
+        node.members[1].attributes.length.should.equal(1);
+        node.members[1].attributes[0].name.should.equal("LolImAVirgin");
+
+        lexer = Lexer("multi type MyTypes { string; int32; bool; }");
+        node = TypeDeclaration.fromDefault(lexer);
+        node.multiMembers.length.should.equal(3);
+        node.multiMembers[0].name.should.equal("string");
+        node.multiMembers[1].name.should.equal("int32");
+        node.multiMembers[2].name.should.equal("bool");
+
+        lexer = Lexer(`enum type Names : string { me: "Bradley"; you: "Unfortunate Coder"; }`);
+        node = TypeDeclaration.fromDefault(lexer);
+        node.enumMembers.length.should.equal(2);
+        node.enumMembers[0].name.should.equal("me");
+        node.enumMembers[0].value.as!String.value.should.equal("Bradley");
+    }
+
+    private static TypeDeclaration parseBasicType(TypeDeclaration node, ref Lexer lexer)
+    {
         Token nearToken;
         while(!lexer.empty)
         {
@@ -862,24 +913,57 @@ final class TypeDeclaration : AstNode
         nearToken.onUnexpectedEof("When parsing type declaration");
         assert(false);
     }
-    ///
-    @("TypeDeclaration.fromDefault")
-    unittest
-    {
-        auto lexer = Lexer("value type Apples { @IsBacon(really: yes, who: .tuna) tuna: bacon!; boobs: fantasy @LolImAVirgin(); }");
 
-        auto node = TypeDeclaration.fromDefault(lexer);
-        node.type.name.should.equal("Apples");
-        node.type.isValueType.should.equal(true);
-        node.attributes.length.should.equal(1);
-        node.attributes[0].name.should.equal("IsBacon");
-        node.members.length.should.equal(2);
-        node.members[0].name.should.equal("tuna");
-        node.members[0].type.name.should.equal("bacon");
-        node.members[1].name.should.equal("boobs");
-        node.members[1].type.name.should.equal("fantasy");
-        node.members[1].attributes.length.should.equal(1);
-        node.members[1].attributes[0].name.should.equal("LolImAVirgin");
+    private static TypeDeclaration parseMultiType(TypeDeclaration node, ref Lexer lexer)
+    {
+        Token nearToken;
+        while(!lexer.empty)
+        {
+            nearToken = lexer.front;
+            lexer.enforceFrontType([TokenType.IDENTIFIER, TokenType.OP_CURLY_BRACKET_R]);
+            
+            if(lexer.front.type == TokenType.IDENTIFIER)
+            {
+                node.multiMembers ~= MemberType.fromDefault(lexer);
+                lexer.enforceFrontTypeAndPop([TokenType.OP_DIVA]);
+            }
+            else if(lexer.front.type == TokenType.OP_CURLY_BRACKET_R)
+            {
+                lexer.popFront();
+                return node;
+            }
+            else
+                assert(false);
+        }
+
+        nearToken.onUnexpectedEof("When parsing type declaration");
+        assert(false);
+    }
+    
+    private static TypeDeclaration parseEnumType(TypeDeclaration node, ref Lexer lexer)
+    {
+        Token nearToken;
+        while(!lexer.empty)
+        {
+            nearToken = lexer.front;
+            lexer.enforceFrontType([TokenType.IDENTIFIER, TokenType.OP_CURLY_BRACKET_R]);
+            
+            if(lexer.front.type == TokenType.IDENTIFIER)
+            {
+                node.enumMembers ~= NamedValue.fromDefault!(AllowValueType.BASIC)(lexer);
+                lexer.enforceFrontTypeAndPop([TokenType.OP_DIVA]);
+            }
+            else if(lexer.front.type == TokenType.OP_CURLY_BRACKET_R)
+            {
+                lexer.popFront();
+                return node;
+            }
+            else
+                assert(false);
+        }
+
+        nearToken.onUnexpectedEof("When parsing type declaration");
+        assert(false);
     }
 }
 // END NODES
