@@ -12,8 +12,8 @@ multi type PropertyValue
 value type Property
 {
     name: stringUTF8!;
-    type: stringUTF8!;
-    value: PropertyValue!;
+    ^type: stringUTF8!;
+    ^value: PropertyValue!;
 }
 
 value type Point
@@ -44,13 +44,13 @@ reference type Object
     polyline:   Point[];
     properties: Property[];
     rotation:   float64;
-    type:       stringUTF8!;
+    ^type:       stringUTF8!;
     visible:    bool!;
 }
 
 enum type DataCompression : string_utf8
 {
-    none: null;
+    none: "";
     gzip: "gzip";
     zlib: "zlib";
     zstd: "zstd";
@@ -76,7 +76,7 @@ reference type Layer
     startY: int32;
     tintColor: string_utf8;
     transparentColor: string_utf8;
-    type: string_utf8;
+    ^type: string_utf8;
     visible: bool;
 }
 
@@ -89,7 +89,7 @@ value type Tile
     objectGroup:    Layer;
     probability:    float64;
     properties:     Property[];
-    type:           string_utf8;
+    ^type:           string_utf8;
 }
 
 reference type Tileset
@@ -112,7 +112,7 @@ reference type Tileset
     tiles: Tile[];
     tileWidth: int32;
     transparentColor: string_utf8;
-    type: string_utf8;
+    ^type: string_utf8;
 }
 
 reference type Map
@@ -133,6 +133,6 @@ reference type Map
     tileHeight: int32;
     tilesets: Tileset[];
     tileWidth: int32;
-    type: string;
+    ^type: string;
     width: int32;
 }

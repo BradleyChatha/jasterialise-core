@@ -184,9 +184,16 @@ final class JasterialiseFile
             if(copy.front.type == TokenType.OP_COLON)
                 return GlobalAttributesStatement.fromDefault(lexer);
             else if(copy.front.type == TokenType.OP_CURLY_BRACKET_L)
-                //return TypeDeclaration.fromDefault(lexer);
-                assert(false, "Not implemented");
-            else if(!copy.front.type.isKeyword && lexer.front.type != TokenType.IDENTIFIER)
+                return TypeDeclaration.fromDefault(lexer);
+            else if(copy.front.type == TokenType.IDENTIFIER)
+            {
+                auto copyCopy = copy;
+                copyCopy.popFront();
+
+                if(copyCopy.front.type == TokenType.OP_COLON)
+                    return TypeDeclaration.fromDefault(lexer);
+            }
+            else if(!copy.front.type.isKeyword && copy.front.type != TokenType.IDENTIFIER)
             {
                 copy.front.onUnexpectedToken("Expected a keyword, identifier, a colon ':', or a left curly bracket '{'.");
                 assert(0);
@@ -967,3 +974,14 @@ final class TypeDeclaration : AstNode
     }
 }
 // END NODES
+
+version(unittest)
+{
+    // TEST_INPUT is from lexer.d
+
+    @("Can successfully parse the AST of a valid file.")
+    unittest
+    {
+        auto file = JasterialiseFile.fromString(TEST_INPUT);
+    }
+}
